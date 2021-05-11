@@ -13,6 +13,9 @@
     "@aws-cdk/aws-rds:lowercaseDbIdentifier": true,
     "@aws-cdk/aws-efs:defaultEncryptionAtRest": true,
     "containerPort": 5002,
-    "containerImage": "http://hub.docker.com/r/mptaws/dn-api-server:latest"
+    "containerImage": "mptaws/dnapiserver",
+    "dbName": "tododb",
+    "dbUser": "admin",
+    "dbPort": 1433
   }
 }

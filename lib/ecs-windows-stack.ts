@@ -4,23 +4,31 @@ import * as ecs from "@aws-cdk/aws-ecs";
 import { ApplicationLoadBalancedEc2Service } from '@aws-cdk/aws-ecs-patterns';
 import * as logs from "@aws-cdk/aws-logs";
 
+export interface ECSWindowsStackProps extends cdk.StackProps {
+  vpc: ec2.Vpc
+  connStr: string
+}
+
 export class ECSWindowsStack extends cdk.Stack {
 
-  constructor(scope: cdk.App, id: string, props: cdk.StackProps) {
+  constructor(scope: cdk.App, id: string, props: ECSWindowsStackProps) {
 
     super(scope, id, props);
 
+    const containerPort = this.node.tryGetContext("containerPort");
+    const containerImage = this.node.tryGetContext("containerImage");
+
     const cluster = new ecs.Cluster(this, 'Cluster', {
-      clusterName: "ecs-windows-demo"
+      clusterName: "ecs-windows-demo",
+      vpc: props.vpc
     });
 
     const asg = cluster.addCapacity('WinEcsNodeGroup', {
       instanceType: ec2.InstanceType.of(ec2.InstanceClass.T2, ec2.InstanceSize.LARGE),
       machineImage: ecs.EcsOptimizedImage.windows(ecs.WindowsOptimizedVersion.SERVER_2019),
       minCapacity: 1,
-      desiredCapacity: 3,
       maxCapacity: 3,
-      canContainersAccessInstanceRole: false
+      canContainersAccessInstanceRole: false,
     });
 
     const security_group = new ec2.SecurityGroup(this, "winEcs-security-group", {
@@ -36,17 +44,15 @@ export class ECSWindowsStack extends cdk.Stack {
       compatibility: ecs.Compatibility.EC2,
       cpu: "1024",
       memoryMiB: "2048",
-      networkMode: ecs.NetworkMode.NAT
+      networkMode: ecs.NetworkMode.NAT,
     });
 
     const logGroup = new logs.LogGroup(this, "TodoAPILogging", {
       retention: logs.RetentionDays.ONE_WEEK,
     })
 
-    const logGroupName = logGroup.logGroupName;
-
     const container = task.addContainer("TodoAPI", {
-      image: ecs.ContainerImage.fromRegistry("mptaws/dnapiserver"),
+      image: ecs.ContainerImage.fromRegistry(containerImage),
       memoryLimitMiB: 2048,
       cpu: 1024,
       entryPoint: ["dotnet", "api.dll"],
@@ -54,17 +60,20 @@ export class ECSWindowsStack extends cdk.Stack {
       logging: ecs.LogDrivers.awsLogs({
         streamPrefix: "TodoAPI",
         logGroup: logGroup,
-      })
+      }),
+      environment: {
+        CONNSTR: props.connStr
+      },
     });
 
     container.addPortMappings({
-      containerPort: 5000
+      containerPort: containerPort
     });
 
     const ecsEc2Service = new ApplicationLoadBalancedEc2Service(this, 'demoapp-service-demo', {
       cluster,
       cpu: 1024,
-      desiredCount: 3,
+      desiredCount: 2,
       minHealthyPercent: 50,
       maxHealthyPercent: 300,
       serviceName: 'winapp-service-demo',
