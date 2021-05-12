@@ -12,8 +12,6 @@ export class RDSStack extends Stack {
     readonly sqlServerInstance: DatabaseInstance;
     readonly secgroup: SecurityGroup;
 
-    readonly connStr: string;
-
     constructor(scope: App, id: string, props: StackProps) {
         super(scope, id, props);
 
@@ -79,7 +77,7 @@ export class RDSStack extends Stack {
 
         this.sqlServerInstance.connections.allowFromAnyIpv4(Port.tcp(dbPort));
 
-        this.connStr = `Server=${this.sqlServerInstance.dbInstanceEndpointAddress}; Database=${dbName}; User ID=${dbUser}; Password=${this.dbSecret.secretValueFromJson('password')};`;
+        //this.connStr = `Server=${this.sqlServerInstance.dbInstanceEndpointAddress}; Database=${dbName}; User ID=${dbUser}; Password=${this.dbSecret.secretValueFromJson('password')};`;
 
         new CfnOutput(this, 'SecretName', { value: this.dbSecret.secretName });
         new CfnOutput(this, 'DBEndpoint', { value: this.sqlServerInstance.dbInstanceEndpointAddress });

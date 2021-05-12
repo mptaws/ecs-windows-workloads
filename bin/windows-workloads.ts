@@ -9,7 +9,7 @@ const rdsStack = new RDSStack(app, 'RDSStack', {});
 
 const ecsStack = new ECSWindowsStack(app, "ECSWindowsStack", {
     vpc: rdsStack.vpc,
-    connStr: rdsStack.connStr
+    dbSecretArn: rdsStack.dbSecret.secretArn
 });
 
 ecsStack.addDependency(rdsStack);
