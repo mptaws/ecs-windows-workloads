@@ -1,14 +1,38 @@
-# Welcome to your CDK TypeScript project!
+# Welcome to Windows Workloads on AWS
 
-This is a blank project for TypeScript development with CDK.
+This project creates a .net web service containerized on ECS behind a Load Balancer.
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+Requirements: Working Node.js environment, AWS CLI installed with a working profile
 
-## Useful commands
+1) Ensure you have latest CDK installed `npm install -g aws-cdk`
+2) Clone the repository
+3) Inside the repo directory, run `npm install`
+4) Ensure you have an AWS profile installed and working `aws configure` - make sure Account ID, Secret Key, Region and Output type are set in `~/.aws/credentials`
+5) Run `cdk deploy --require-approval never`
+6) Once completed, two Cloudformation Stack will be created, one that created an MS SQL Server in RDS, the other that created a Load Balanced ECS Service of type EC2.
+COpy the last URL output by the CDK (the loadbalancer URL) and open it in a browser, paste it in a browser and append `/api/todos`.   The result should be a JSON object of 3 todo items.
 
- * `npm run build`   compile typescript to js
- * `npm run watch`   watch for changes and compile
- * `npm run test`    perform the jest unit tests
- * `cdk deploy`      deploy this stack to your default AWS account/region
- * `cdk diff`        compare deployed stack with current state
- * `cdk synth`       emits the synthesized CloudFormation template
+API works as follows:
+
+GET /api/todos - GET all todos
+GET /api/todos/{id} - GET a single todo (id is an integer)
+POST /api/todos w/ a template body of
+```
+{
+    "title": "Put your todo title here",
+    "completed": false
+}
+```
+
+PUT /api/todo/id - EDIT a specific todo item with template body of
+```
+{
+    "title": "Edit the value here",
+    "completed": true
+}
+```
+
+DELETE /api/todo/{id} - DELETE a specific todo at id
+
+Above API collection available as a Postman Collection - `TodoApp.postman_collection` - install postman from `https://www.postman.com/product/api-client/`
+
