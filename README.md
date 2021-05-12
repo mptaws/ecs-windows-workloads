@@ -10,6 +10,7 @@ Requirements: Working Node.js environment, AWS CLI installed with a working prof
 4) Ensure you have an AWS profile installed and working `aws configure` - make sure Account ID, Secret Key, Region and Output type are set in `~/.aws/credentials`
 5) Run `cdk deploy --require-approval never`
 6) Once completed, two Cloudformation stacks will be created, one that created an MS SQL Server in RDS, the other that created a Load Balanced ECS Service of type EC2.
+The ECS cluster is running the .NET web service: `https://github.com/mptaws/dn-api-server`
 Copy the last URL output by the CDK (the loadbalancer URL) and open it in a browser, paste it in a browser and append `/api/todos`.   The result should be a JSON object of 3 todo items.
 
 ```
