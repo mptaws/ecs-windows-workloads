@@ -9,8 +9,28 @@ Requirements: Working Node.js environment, AWS CLI installed with a working prof
 3) Inside the repo directory, run `npm install`
 4) Ensure you have an AWS profile installed and working `aws configure` - make sure Account ID, Secret Key, Region and Output type are set in `~/.aws/credentials`
 5) Run `cdk deploy --require-approval never`
-6) Once completed, two Cloudformation Stack will be created, one that created an MS SQL Server in RDS, the other that created a Load Balanced ECS Service of type EC2.
-COpy the last URL output by the CDK (the loadbalancer URL) and open it in a browser, paste it in a browser and append `/api/todos`.   The result should be a JSON object of 3 todo items.
+6) Once completed, two Cloudformation stacks will be created, one that created an MS SQL Server in RDS, the other that created a Load Balanced ECS Service of type EC2.
+Copy the last URL output by the CDK (the loadbalancer URL) and open it in a browser, paste it in a browser and append `/api/todos`.   The result should be a JSON object of 3 todo items.
+
+```
+[
+    {
+        "id": 1,
+        "title": "Past Todo 1",
+        "completed": false
+    },
+    {
+        "id": 2,
+        "title": "Past Todo 2",
+        "completed": true
+    },
+    {
+        "id": 3,
+        "title": "Future Todo 1",
+        "completed": false
+    }
+]
+```
 
 API works as follows:
 
@@ -34,5 +54,7 @@ PUT /api/todo/id - EDIT a specific todo item with template body of
 
 DELETE /api/todo/{id} - DELETE a specific todo at id
 
-Above API collection available as a Postman Collection - `TodoApp.postman_collection` - install postman from `https://www.postman.com/product/api-client/`
+OPTIONAL:
+Above API collection available as a Postman Collection in the repository - `TodoApp.postman_collection`
+Install postman from `https://www.postman.com/product/api-client/` - be sure to edit the collection variable `url` with the Loadbalancer URL.
 

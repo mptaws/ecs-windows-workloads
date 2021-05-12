@@ -143,7 +143,7 @@
 	"variable": [
 		{
 			"key": "url",
-			"value": ""
+			"value": "!!!!!PUT THE LOADBALANCER URL HERE!!!!!!"
 		}
 	]
 }
