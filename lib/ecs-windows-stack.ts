@@ -45,15 +45,15 @@ export class ECSWindowsStack extends cdk.Stack {
 
     taskRole.addToPolicy(new iam.PolicyStatement({
       actions: [
-          "secretsmanager:GetSecretValue",
-          "kms:Decrypt"
+        "secretsmanager:GetSecretValue",
+        "kms:Decrypt"
       ],
       resources: [
-          `arn:aws:secretsmanager:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:secret/*`,
-          `arn:aws:kms:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:key/*`,
+        `arn:aws:secretsmanager:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:secret/*`,
+        `arn:aws:kms:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:key/*`,
       ],
       effect: iam.Effect.ALLOW
-  }))
+    }))
 
     security_group.addIngressRule(ec2.Peer.ipv4("0.0.0.0/0"), ec2.Port.tcp(5000));
     security_group.addIngressRule(ec2.Peer.ipv4("0.0.0.0/0"), ec2.Port.tcp(80));
@@ -82,7 +82,6 @@ export class ECSWindowsStack extends cdk.Stack {
       image: ecs.ContainerImage.fromRegistry(containerImage),
       memoryLimitMiB: 2048,
       cpu: 1024,
-      entryPoint: ["dotnet", "api.dll"],
       essential: true,
       logging: ecs.LogDrivers.awsLogs({
         streamPrefix: "TodoAPI",
