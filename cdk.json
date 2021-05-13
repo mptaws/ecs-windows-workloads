@@ -13,7 +13,7 @@
     "@aws-cdk/aws-rds:lowercaseDbIdentifier": true,
     "@aws-cdk/aws-efs:defaultEncryptionAtRest": true,
     "containerPort": 5000,
-    "containerImage": "mptaws/dnapiserver",
+    "containerImage": "public.ecr.aws/o0u3i9v5/dnapiserver",
     "dbName": "tododb",
     "dbUser": "admin",
     "dbPort": 1433
