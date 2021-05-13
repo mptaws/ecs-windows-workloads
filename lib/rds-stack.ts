@@ -1,9 +1,13 @@
-import { App, StackProps, Stack, Duration, RemovalPolicy, CfnOutput } from "@aws-cdk/core";
+import { App, StackProps, Stack, Duration, RemovalPolicy } from "@aws-cdk/core";
 import {
     DatabaseSecret, Credentials, ParameterGroup, SqlServerEngineVersion, DatabaseInstance, DatabaseInstanceEngine, OptionGroup, StorageType
 } from '@aws-cdk/aws-rds';
-import { Vpc, Port, SubnetType, Instance, InstanceType, InstanceClass, InstanceSize, SecurityGroup, Peer } from '@aws-cdk/aws-ec2';
+import { Vpc, Port, SubnetType, InstanceType, InstanceClass, InstanceSize, SecurityGroup, Peer } from '@aws-cdk/aws-ec2';
 import { Secret } from '@aws-cdk/aws-secretsmanager';
+
+export interface RDSStackProps extends StackProps {
+    vpc: Vpc
+}
 
 export class RDSStack extends Stack {
     readonly vpc: Vpc;
@@ -12,28 +16,11 @@ export class RDSStack extends Stack {
     readonly sqlServerInstance: DatabaseInstance;
     readonly secgroup: SecurityGroup;
 
-    constructor(scope: App, id: string, props: StackProps) {
+    constructor(scope: App, id: string, props: RDSStackProps) {
         super(scope, id, props);
 
         const dbUser = this.node.tryGetContext("dbUser");
-        const dbName = this.node.tryGetContext("dbName");
         const dbPort = this.node.tryGetContext("dbPort") || 1433;
-
-        this.vpc = new Vpc(this, 'ecsWorkshopVPC', {
-            cidr: "10.0.0.0/16",
-            subnetConfiguration: [
-                {
-                    cidrMask: 24,
-                    name: 'public',
-                    subnetType: SubnetType.PUBLIC,
-                },
-                {
-                    cidrMask: 24,
-                    name: 'private',
-                    subnetType: SubnetType.PRIVATE,
-                },
-            ],
-        });
 
         this.dbSecret = new Secret(this, 'dbSecret', {
             secretName: "ecsworkshop/test/todo-app/sql-server",
@@ -48,7 +35,7 @@ export class RDSStack extends Stack {
         });
 
         this.secgroup = new SecurityGroup(this, "apiSQLsg", {
-            vpc: this.vpc,
+            vpc: props.vpc,
             securityGroupName: "api-sqlsvr-sg",
             allowAllOutbound: false
         });
@@ -56,7 +43,7 @@ export class RDSStack extends Stack {
         this.secgroup.addIngressRule(Peer.anyIpv4(), Port.tcp(1433));
 
         this.sqlServerInstance = new DatabaseInstance(this, "MSSQLServer", {
-            vpc: this.vpc,
+            vpc: props.vpc,
             instanceIdentifier: "api-mssqlserver",
             engine: DatabaseInstanceEngine.sqlServerEx({ version: SqlServerEngineVersion.VER_14 }),
             credentials: Credentials.fromSecret(this.dbSecret, dbUser),
@@ -64,7 +51,7 @@ export class RDSStack extends Stack {
             allocatedStorage: 100,
             storageType: StorageType.GP2,
             multiAz: false,
-            vpcSubnets: { subnetType: SubnetType.PUBLIC },
+            vpcSubnets: { subnetType: SubnetType.PRIVATE },
             deletionProtection: false,
             backupRetention: Duration.days(0),
             removalPolicy: RemovalPolicy.DESTROY,
@@ -77,9 +64,5 @@ export class RDSStack extends Stack {
 
         this.sqlServerInstance.connections.allowFromAnyIpv4(Port.tcp(dbPort));
 
-        //this.connStr = `Server=${this.sqlServerInstance.dbInstanceEndpointAddress}; Database=${dbName}; User ID=${dbUser}; Password=${this.dbSecret.secretValueFromJson('password')};`;
-
-        new CfnOutput(this, 'SecretName', { value: this.dbSecret.secretName });
-        new CfnOutput(this, 'DBEndpoint', { value: this.sqlServerInstance.dbInstanceEndpointAddress });
     }
 }

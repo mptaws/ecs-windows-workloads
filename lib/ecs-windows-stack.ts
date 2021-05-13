@@ -1,20 +1,22 @@
-import * as cdk from '@aws-cdk/core';
-import * as ec2 from "@aws-cdk/aws-ec2";
-import * as ecs from "@aws-cdk/aws-ecs";
-import { Secret as ECSSecret } from "@aws-cdk/aws-ecs";
+import { App, Stack, StackProps, Duration } from '@aws-cdk/core';
+import { Vpc, Peer, Port, SecurityGroup, InstanceType, InstanceClass, InstanceSize } from "@aws-cdk/aws-ec2";
+import {
+  Cluster, EcsOptimizedImage, WindowsOptimizedVersion, TaskDefinition,
+  Compatibility, NetworkMode, ContainerImage, LogDrivers, Secret as ECSSecret
+} from "@aws-cdk/aws-ecs";
 import { ApplicationLoadBalancedEc2Service } from '@aws-cdk/aws-ecs-patterns';
-import * as logs from "@aws-cdk/aws-logs";
+import { LogGroup, RetentionDays } from "@aws-cdk/aws-logs";
 import { Secret } from '@aws-cdk/aws-secretsmanager';
-import * as iam from '@aws-cdk/aws-iam';
+import { Role, ServicePrincipal, Effect, PolicyStatement } from '@aws-cdk/aws-iam';
 
-export interface ECSWindowsStackProps extends cdk.StackProps {
-  vpc: ec2.Vpc
+export interface ECSWindowsStackProps extends StackProps {
+  vpc: Vpc
   dbSecretArn: string
 }
 
-export class ECSWindowsStack extends cdk.Stack {
+export class ECSWindowsStack extends Stack {
 
-  constructor(scope: cdk.App, id: string, props: ECSWindowsStackProps) {
+  constructor(scope: App, id: string, props: ECSWindowsStackProps) {
 
     super(scope, id, props);
 
@@ -22,68 +24,69 @@ export class ECSWindowsStack extends cdk.Stack {
     const containerImage = this.node.tryGetContext("containerImage");
     const creds = Secret.fromSecretCompleteArn(this, 'mssqlcreds', props.dbSecretArn);
 
-    const cluster = new ecs.Cluster(this, 'Cluster', {
+    const cluster = new Cluster(this, 'Cluster', {
       clusterName: "ecs-windows-demo",
       vpc: props.vpc
     });
 
     const asg = cluster.addCapacity('WinEcsNodeGroup', {
-      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T2, ec2.InstanceSize.LARGE),
-      machineImage: ecs.EcsOptimizedImage.windows(ecs.WindowsOptimizedVersion.SERVER_2019),
+      instanceType: InstanceType.of(InstanceClass.T2, InstanceSize.LARGE),
+      machineImage: EcsOptimizedImage.windows(WindowsOptimizedVersion.SERVER_2019),
       minCapacity: 1,
       maxCapacity: 3,
       canContainersAccessInstanceRole: false,
     });
 
-    const security_group = new ec2.SecurityGroup(this, "winEcs-security-group", {
-      vpc: cluster.vpc
+    const taskSecGroup = new SecurityGroup(this, "winEcs-security-group", {
+      vpc: props.vpc
     });
 
-    const taskRole = new iam.Role(this, "EcsTaskRole", {
-      assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com")
+    const taskRole = new Role(this, "EcsTaskRole", {
+      assumedBy: new ServicePrincipal("ecs-tasks.amazonaws.com")
     });
 
-    taskRole.addToPolicy(new iam.PolicyStatement({
+    taskRole.addToPolicy(new PolicyStatement({
       actions: [
         "secretsmanager:GetSecretValue",
         "kms:Decrypt"
       ],
       resources: [
-        `arn:aws:secretsmanager:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:secret/*`,
-        `arn:aws:kms:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:key/*`,
+        `arn:aws:secretsmanager:${Stack.of(this).region}:${Stack.of(this).account}:secret/*`,
+        `arn:aws:kms:${Stack.of(this).region}:${Stack.of(this).account}:key/*`,
       ],
-      effect: iam.Effect.ALLOW
+      effect: Effect.ALLOW
     }))
 
-    security_group.addIngressRule(ec2.Peer.ipv4("0.0.0.0/0"), ec2.Port.tcp(5000));
-    security_group.addIngressRule(ec2.Peer.ipv4("0.0.0.0/0"), ec2.Port.tcp(80));
+    taskSecGroup.addIngressRule(Peer.ipv4("0.0.0.0/0"), Port.tcp(5000));
+    taskSecGroup.addIngressRule(Peer.ipv4("0.0.0.0/0"), Port.tcp(80));
 
-    asg.addSecurityGroup(security_group);
+    asg.addSecurityGroup(taskSecGroup);
 
-    const user_data = ec2.UserData.forWindows()
-    user_data.addCommands(
+    const userData = [
       '[Environment]::SetEnvironmentVariable("ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE", $TRUE, "Machine")',
       `Initialize-ECSAgent -Cluster ${cluster.clusterName} -EnableTaskIAMRole -LoggingDrivers '["json-file","awslogs"]'`
-    )
+    ];
 
-    const task = new ecs.TaskDefinition(this, "apiTask", {
-      compatibility: ecs.Compatibility.EC2,
+    asg.addUserData(...userData);
+
+    const task = new TaskDefinition(this, "apiTask", {
+      compatibility: Compatibility.EC2,
       cpu: "1024",
       memoryMiB: "2048",
-      networkMode: ecs.NetworkMode.NAT,
+      networkMode: NetworkMode.NAT,
       taskRole: taskRole
     });
 
-    const logGroup = new logs.LogGroup(this, "TodoAPILogging", {
-      retention: logs.RetentionDays.ONE_WEEK,
+    const logGroup = new LogGroup(this, "TodoAPILogging", {
+      retention: RetentionDays.ONE_DAY,
     })
 
     const container = task.addContainer("TodoAPI", {
-      image: ecs.ContainerImage.fromRegistry(containerImage),
+      image: ContainerImage.fromRegistry(containerImage),
       memoryLimitMiB: 2048,
       cpu: 1024,
       essential: true,
-      logging: ecs.LogDrivers.awsLogs({
+      logging: LogDrivers.awsLogs({
         streamPrefix: "TodoAPI",
         logGroup: logGroup,
       }),
@@ -113,15 +116,10 @@ export class ECSWindowsStack extends cdk.Stack {
       path: "/health",
       healthyThresholdCount: 2,
       unhealthyThresholdCount: 5,
-      interval: cdk.Duration.seconds(60),
-      timeout: cdk.Duration.seconds(15)
+      interval: Duration.seconds(60),
+      timeout: Duration.seconds(15)
     });
 
-
-
-    new cdk.CfnOutput(this, "ALBEndpoint", {
-      value: ecsEc2Service.loadBalancer.loadBalancerDnsName
-    });
   }
 }
 
